@@ -1,0 +1,30 @@
+{
+  "name": "generator-gulp-es6",
+  "version": "1.0.0",
+  "description": "A generator for creating gulp with es6 project",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buff2017/generator-gulp-es6.git"
+  },
+  "homepage": "https://github.com/buff2017/generator-gulp-es6",
+  "bugs": {
+    "url": "https://github.com/buff2017/generator-gulp-es6/issues"
+  },
+  "files": [
+    "generators"
+  ],
+  "keywords": [
+    "yeoman-generator",
+    "gulp",
+    "es6"
+  ],
+  "author": "buff2017",
+  "license": "MIT",
+  "dependencies": {
+    "yeoman-generator": "^2.0.5"
+  }
+}
