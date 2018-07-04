@@ -1,6 +1,6 @@
 {
-  "name": "generator-gulp-es6",
-  "version": "1.0.0",
+  "name": "generator-gulp-with-es6",
+  "version": "1.0.2",
   "description": "A generator for creating gulp with es6 project",
   "main": "index.js",
   "scripts": {

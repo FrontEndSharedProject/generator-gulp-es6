@@ -47,7 +47,7 @@ module.exports = class extends Generator {
     }]).then((answers) => {
       fs.mkdirSync('app')
       
-      let projectName = answers.projectName.trim().replace('', '-')
+      let projectName = answers.projectName.trim().replace(' ', '-')
       projectName = projectName.replace(/^-/, '')
       
       //  修改gulpfile.babel中的JS名字
