@@ -44,7 +44,7 @@ module.exports = class extends Generator {
       fs.mkdirSync('app')
       
       let projectName = answers.projectName ? answers.projectName : this.appname
-      projectName = projectName.projectName.trim().replace(' ', '-')
+      projectName = projectName.trim().replace(' ', '-')
       projectName = projectName.replace(/^-/, '')
       
       this.fs.copyTpl(
