@@ -1,110 +1,202 @@
-'use strict'
-
 import gulp from 'gulp'
-import browserSync from 'browser-sync'                //  浏览器自动刷新
-import sass from 'gulp-sass'                          //  sass编译
-import sourcemaps from 'gulp-sourcemaps'              //  代码地图
-import uglify from 'gulp-uglify'                      //  压缩JS
-import saveLicense from 'uglify-save-license'         //  处理uglify 保存协议的问题
-import stripDebug from 'gulp-strip-debug'             //  清理JS中的debug方法
-import clean from 'gulp-clean-css'                    //  压缩css
-import autop from 'gulp-autoprefixer'                 //  css版本前缀
-import rename from 'gulp-rename'                      //  修改文件名
-import gutil from 'gulp-util'                         //  输出有色控制台信息
-import notify from 'gulp-notify'                      //  命令行提示信息
+import path from 'path'
+import fs from 'fs'
+import browserSync from 'browser-sync'
+import sass from 'gulp-sass'
+import sourcemaps from 'gulp-sourcemaps'
+import uglify from 'gulp-uglify'
+import saveLicense from 'uglify-save-license'
+import stripDebug from 'gulp-strip-debug'
+import htmlmin from 'gulp-htmlmin'
+import clean from 'gulp-clean-css'
+import autop from 'gulp-autoprefixer'
+import gutil from 'gulp-util'
+import newer from 'gulp-newer'
+import globby from 'globby'
+import deporder from 'gulp-deporder'
+import effectiveJs from 'gulp-ejs'
+import imagemin from 'gulp-imagemin'
+import plumber from 'gulp-plumber'
 
 // browserify
 import browserify from 'browserify'
-import source from 'vinyl-source-stream'              //  browserify的输出不能直接用着gulp的输入，vinly-source-stream 主要是做一个转化
-import buffer from 'vinyl-buffer'                     //  用于将vinyl流转化为buffered vinyl文件
-import babelify from 'babelify'                       //  让browserify transform 支持babel转义
+import source from 'vinyl-source-stream'
+import buffer from 'vinyl-buffer'
+import babelify from 'babelify'
 
-const PATH = {
-  useMin: false, //  是否使用[name].min.js 后缀
-  basicDir: 'app',
-  css: {
-    scssSrc: ['app/scss/**/*.scss'],
-    scssDest: 'app/css',
-    cssSrc: 'app/css/**/*.css',
-    cssDest: 'app/css'
-  },
-  js: {
-    jsName: '<%= projectName %>.js',
-    jsSrc: 'app/js/**/*.js',
-    jsEntrance: ['app/js/index.js'],
-    jsDest: 'app/build'
-  }
-};
+// - - - - - - - - - - - - - - - - - - - Basic defined  - - - - - - - - - - - - - - - - - - -
+const DIR = {
+  app: 'app',
+  build: 'build',
+  dist: 'dist',
+  database: 'database',
+  sources: 'sources'
+}
 
-//  压缩css代码
-gulp.task('cssClean', ['sass'], () => {
-  gulp.src(PATH.css.cssSrc)
-  .pipe(clean())
-  .pipe(autop({browsers: ['last 10 versions']}))
-  .pipe(rename({
-    suffix: PATH.useMin ? '.min' : ''  //  [name].min.css
-  }))
-  .pipe(gulp.dest(PATH.css.cssDest))
-})
+const JS = {
+  devPath: '/js',
+  fileSuffix: 'entry'
+}
 
-gulp.task('sass', () => {
-  return gulp.src(PATH.css.scssSrc)
-  .pipe(sourcemaps.init())
-  .pipe(sass.sync().on('error', sass.logError))
-  .pipe(sourcemaps.write())
-  .pipe(gulp.dest(PATH.css.scssDest))
-  .pipe(browserSync.stream());
-})
+const CSS = {
+  devPath: '/scss',
+  outPutPath: '/css'
+}
 
-//  js ES6 打包编译
-gulp.task('browserify', () => {
-  browserify({
-    entries: PATH.js.jsEntrance,
+// - - - - - - - - - - - - - - - - - - - handle js files - - - - - - - - - - - - - - - - - - -
+let jsFileTransform = fileName => {
+  return browserify({
+    entries: fileName,
     debug: true,
   })
-  .transform("babelify", {presets: ["es2015"]}).on('error', function (error) {
-    // If you want details of the error in the console
-    console.error(error.toString())
-    this.emit('end')
+  .transform('babelify', {
+    'presets': [
+      '@babel/preset-env'
+    ],
+    'retainLines': true,
+    'plugins': [
+      '@babel/plugin-transform-runtime',
+      '@babel/plugin-transform-async-to-generator'
+    ]
   })
+  .on('error', err => gutil.log(gutil.colors.red('[Error]'), err.toString()))
   .bundle()
-  .pipe(source(PATH.js.jsName))
+  .pipe(source(path.basename(fileName).replace(`.${JS.fileSuffix}`, '')))
   .pipe(buffer())
   .pipe(sourcemaps.init({loadMaps: true}))
   .pipe(sourcemaps.write('.'))
-  .pipe(gulp.dest(PATH.js.jsDest))
-  //.pipe(notify({message: 'browserify 转换成功'}))
+  .pipe(gulp.dest(`${DIR.build}${JS.devPath}/`))
+}
+
+/**
+ * es6 transform to es5 by browserify
+ */
+gulp.task('es6-transform', async () => {
+  let files = await globby(`${DIR.app}${JS.devPath}/**/*.${JS.fileSuffix}.js`)
+  files.map((fileName, key) => {
+    jsFileTransform(fileName)
+    key === files.length - 1 && browserSync.reload()
+  })
 })
 
-//  開始
-gulp.task('start', ['sass', 'browserify'], () => {
-  browserSync.init({
-    server: PATH.basicDir
-  });
-  
-  gulp.watch(PATH.css.scssSrc, ['sass']);
-  gulp.watch(PATH.js.jsSrc, ['browserify']);
-  gulp.watch(`${PATH.js.jsDest}/*.js`).on('change', browserSync.reload);
-  gulp.watch(`${PATH.basicDir}/**/*.html`).on('change', browserSync.reload);
-})
-
-//  压缩JS
-gulp.task('unglifyJs', function () {
-  gulp.src(`${PATH.js.jsDest}/**/*.js`)
+/**
+ * uglify js
+ */
+gulp.task('uglify-js', gulp.series('es6-transform', () => {
+  return gulp.src(`${DIR.build}${JS.devPath}/**/*.js`)
+  .pipe(deporder())
   .pipe(stripDebug())
+  .pipe(sourcemaps.init())
   .pipe(uglify({
     output: {
       comments: saveLicense
     }
   }))
-  .on('error', function (err) {
-    gutil.log(gutil.colors.red('[Error]'), err.toString());
-  })
-  .pipe(rename({
-    suffix: PATH.useMin ? '.min' : ''
-  }))
-  .pipe(gulp.dest(PATH.js.jsDest))
+  .pipe(sourcemaps.write('.'))
+  .pipe(gulp.dest(`${DIR.dist}${JS.devPath}/`))
+}))
+
+
+// - - - - - - - - - - - - - - - - - - - handle ejs files - - - - - - - - - - - - - - - - - - -
+gulp.task('ejs-transform', async () => {
+  //  load database
+  let files = await globby(`${DIR.app}/${DIR.database}/**/*.json`)
+  let data = {}
+  files.map(filePath => data[path.basename(filePath).replace('.json', '')] = JSON.parse(fs.readFileSync(filePath, 'utf8')))
+
+  return gulp.src(`${DIR.app}/*.ejs`)
+  .pipe(plumber())
+  .pipe(effectiveJs(data, {}, {ext: '.html'}))
+  .pipe(gulp.dest(`${DIR.build}`))
 })
 
-//  发布
-gulp.task('build', ['cssClean', 'unglifyJs'])
+gulp.task('html-copy', () => {
+  return gulp.src(`${DIR.build}/**/*.html`)
+  .pipe(htmlmin({collapseWhitespace: true}))
+  .pipe(gulp.dest(`${DIR.dist}/`));
+})
+
+
+// - - - - - - - - - - - - - - - - - - - handle scss files - - - - - - - - - - - - - - - - - - -
+gulp.task('scss-transform', () => {
+  return gulp.src(`${DIR.app}/${CSS.devPath}/**/*.scss`)
+  .pipe(sourcemaps.init())
+  .pipe(sass.sync({
+    outputStyle: 'nested',
+    precision: 3,
+  })
+  .on('error', sass.logError))
+  .pipe(sourcemaps.write('.'))
+  .pipe(gulp.dest(`${DIR.build}${CSS.outPutPath}/`))
+  .pipe(browserSync ? browserSync.reload({stream: true}) : gutil.noop())
+})
+
+gulp.task('clean-css', gulp.series('scss-transform', () => {
+  return gulp.src(`${DIR.build}/${CSS.outPutPath}/**/*.css`)
+  .pipe(sourcemaps.init())
+  .pipe(clean())
+  .pipe(autop({browsers: ['last 10 versions']}))
+  .pipe(sourcemaps.write('.'))
+  .pipe(gulp.dest(`${DIR.dist}${CSS.outPutPath}/`))
+}))
+
+
+// - - - - - - - - - - - - - - - - - - - source - - - - - - - - - - - - - - - - - - -
+gulp.task('sources-copy', () => {
+  return gulp.src(`${DIR.app}/${DIR.sources}/**/*.*`)
+  .pipe(newer(`${DIR.build}/${DIR.sources}/`))
+  .pipe(gulp.dest(`${DIR.build}/${DIR.sources}/`))
+})
+
+gulp.task('images-minify', () => {
+  return gulp.src(`${DIR.build}/${DIR.sources}/**/*.{jpg,jpeg,png,gif,svg}`)
+  .pipe(newer(`${DIR.dist}/${DIR.sources}/`))
+  .pipe(imagemin([
+    imagemin.gifsicle({optimizationLevel: 5}),
+    imagemin.jpegtran({optimizationLevel: 5}),
+    imagemin.optipng({optimizationLevel: 5}),
+  ], {
+    verbose: true
+  }))
+  .pipe(gulp.dest(`${DIR.dist}/${DIR.sources}/`))
+})
+
+// - - - - - - - - - - - - - - - - - - - dev server - - - - - - - - - - - - - - - - - - -
+let createDevServer = () => {
+  return browserSync.init({
+    server: `${DIR.build}/`,
+    port: 3000,
+    // logLevel: 'debug',
+    open: 'local',
+    notify: true,
+    ghostMode: false
+  })
+}
+
+gulp.task('browsersync',
+  gulp.parallel('ejs-transform',
+    gulp.parallel('scss-transform',
+      gulp.parallel('es6-transform',
+        gulp.parallel('sources-copy', () => createDevServer())))))
+
+gulp.task('start', gulp.parallel('browsersync', () => {
+  //  ejs
+  gulp.watch(`${DIR.app}/**/*.ejs`, gulp.series('ejs-transform')).on('change', browserSync.reload)
+  gulp.watch(`${DIR.app}/${DIR.database}/*.json`, gulp.series('ejs-transform')).on('change', browserSync.reload)
+
+  //  js
+  gulp.watch(`${DIR.app}${JS.devPath}/**/*.js`, gulp.series('es6-transform'))
+
+  //  scss
+  gulp.watch(`${DIR.app}${CSS.devPath}/**/*.scss`, gulp.series('scss-transform'))
+
+  //  source
+  gulp.watch(`${DIR.app}/${DIR.sources}/**/*.*`, gulp.series('sources-copy')).on('change', browserSync.reload)
+}))
+
+
+// - - - - - - - - - - - - - - - - - - - build - - - - - - - - - - - - - - - - - - -
+gulp.task('build', gulp.parallel('uglify-js', gulp.parallel('clean-css', gulp.parallel('images-minify', gulp.series('html-copy', done => done())))))
+
+
+//  处理data更新时生成ejs

@@ -40,36 +40,18 @@ module.exports = class extends Generator {
       name: 'projectName',
       message: 'Tell me u project name',
       default: this.appname // Default to current folder name
-    }, {
-      type: 'confirm',
-      name: 'cool',
-      message: 'Would you like to enable the Cool feature?'
     }]).then((answers) => {
       fs.mkdirSync('app')
       
-      let projectName = answers.projectName.trim().replace(' ', '-')
+      let projectName = answers.projectName ? answers.projectName : this.appname
+      projectName = projectName.projectName.trim().replace(' ', '-')
       projectName = projectName.replace(/^-/, '')
       
-      //  修改gulpfile.babel中的JS名字
       this.fs.copyTpl(
-        this.templatePath('gulpfile_tmpl'),
-        this.destinationPath('gulpfile.babel.js'),
+        this.templatePath('package_tmpl'),
+        this.destinationPath('package.json'),
         {projectName: projectName}
       )
-      
-      //  copy scss文件
-      this.fs.copy(
-        this.templatePath("scss_tmpl"),
-        this.destinationPath(`app/scss/${projectName}.scss`)
-      )
-      
-      //  copy index.html
-      this.fs.copyTpl(
-        this.templatePath('index.html'),
-        this.destinationPath('app/index.html'),
-        {projectName: projectName}
-      )
-      
     })
     
   }
@@ -100,14 +82,11 @@ module.exports = class extends Generator {
    * 写入文件
    */
   writing () {
-    fs.mkdirSync('app/build')
-    fs.mkdirSync('app/css')
-    fs.mkdirSync('app/images')
-    fs.mkdirSync('app/vendor')
-    fs.mkdirSync('app/scss')
-    fs.mkdirSync('app/scss/Modules')
+    fs.mkdirSync('app/database')
     fs.mkdirSync('app/js')
-    fs.mkdirSync('app/js/Modules')
+    fs.mkdirSync('app/scss')
+    fs.mkdirSync('app/sources')
+    fs.mkdirSync('app/templates')
     
     //  放置app目录
     this.fs.copy(
@@ -121,8 +100,11 @@ module.exports = class extends Generator {
       this.templatePath("babelrc_tmpl"),
       this.destinationPath(".babelrc")
     )
-    
-    
+  
+    this.fs.copy(
+      this.templatePath("gulpfile_tmpl"),
+      this.destinationPath("gulpfile.babel.js")
+    )
   }
   
   /**
@@ -137,9 +119,5 @@ module.exports = class extends Generator {
     }).then(() => {
       this.spawnCommand('npm', ['start'])
     })
-    
-    
   }
-  
-  
 }

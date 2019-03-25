@@ -1,0 +1,23 @@
+$fontColor: #333;
+h1 {
+  font-size: 84px;
+  color: $fontColor;
+  text-align: center;
+  font-weight: 300;
+  font-family: Raleway;
+}
+
+.nav {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+
+  .item {
+    margin: 0 8px;
+
+    a {
+      font-size: 24px;
+    }
+  }
+}

@@ -1,0 +1,16 @@
+@import "./Modules/FrontPage";
+
+
+.photo {
+  position: fixed;
+  right: 44px;
+  top: 44px;
+  display: flex;
+  justify-content: center;
+
+  img {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+  }
+}

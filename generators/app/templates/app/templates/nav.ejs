@@ -1,0 +1,8 @@
+<div class="photo">
+    <img src="./sources/photo.jpeg" alt="">
+</div>
+<div class="nav">
+    <% nav.forEach(item=>{ %>
+        <div class="item"><a href="<%= item.link %>"><%= item.title %></a></div>
+    <% }); %>
+</div>
