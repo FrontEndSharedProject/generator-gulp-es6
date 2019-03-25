@@ -41,17 +41,10 @@ module.exports = class extends Generator {
       message: 'Tell me u project name',
       default: this.appname // Default to current folder name
     }]).then((answers) => {
-      fs.mkdirSync('app')
-      
       let projectName = answers.projectName ? answers.projectName : this.appname
       projectName = projectName.trim().replace(' ', '-')
       projectName = projectName.replace(/^-/, '')
-      
-      this.fs.copyTpl(
-        this.templatePath('package_tmpl'),
-        this.destinationPath('package.json'),
-        {projectName: projectName}
-      )
+      this.appName = projectName
     })
     
   }
@@ -82,12 +75,6 @@ module.exports = class extends Generator {
    * 写入文件
    */
   writing () {
-    fs.mkdirSync('app/database')
-    fs.mkdirSync('app/js')
-    fs.mkdirSync('app/scss')
-    fs.mkdirSync('app/sources')
-    fs.mkdirSync('app/templates')
-    
     //  放置app目录
     this.fs.copy(
       this.templatePath("app"),
