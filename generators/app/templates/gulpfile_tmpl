@@ -75,7 +75,7 @@ gulp.task('es6-transform', async () => {
   let files = await globby(`${DIR.app}${JS.devPath}/**/*.${JS.fileSuffix}.js`)
   files.map((fileName, key) => {
     jsFileTransform(fileName)
-    key === files.length - 1 && browserSync.reload()
+    key === files.length - 1 && setTimeout(() => browserSync.reload(), 300)
   })
 })
 
